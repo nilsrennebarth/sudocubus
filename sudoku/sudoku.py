@@ -100,7 +100,7 @@ class Cell:
 	def is_fix(self):
 		return isinstance(self._val, int)
 
-	def copy(self):
+	def backup(self):
 		"""
 		Get a copy of the value for backup
 
@@ -112,6 +112,12 @@ class Cell:
 			return self._val
 		else:
 			return self._val.copy()
+
+	def restore(self, val):
+		"""
+		Restore value from a backup
+		"""
+		self._val = val
 
 	def print(self):
 		"""
@@ -162,8 +168,8 @@ class Sudoku(types.SimpleNamespace):
 	automatically whenever a cell changes from unknown to a fixed
 	value. It is supposed to be increased exclusively in this way and
 	can be used to check if any progress has been made.
-	The `completed` property on the other hand is supposed to be
-	increased by `found`, and found cleared whenever various tries
+	The remain` property on the other hand is supposed to be
+	decreased by `found`, and `found` cleared whenever various tries
 	had been made.
 	"""
 
@@ -173,8 +179,8 @@ class Sudoku(types.SimpleNamespace):
 		self.N = n * m
 		self.digits = len(str(self.N))
 		self.found = 0
-		self.computed = 0
 		self.remain = self.N * self.N
+		self.stack = []
 		self.cells = [
 			Cell(self.N, i, j, self)
 			for i in range(self.N)
@@ -224,6 +230,22 @@ class Sudoku(types.SimpleNamespace):
 		cell = self.cell(row, col)
 		cell.val = val
 		self.givens.append(cell)
+
+	def backup(self):
+		"""
+		Push a backup of all current cell values on the stack
+		"""
+		self.stack.append([
+			cell.backup() for cell in self.cells
+		])
+
+	def restore(self):
+		"""
+		Restore the cell values from the top of the stack
+		"""
+		cells = self.stack.pop()
+		for i, cell in enumerate(cells):
+			self.cells[i].restore(cell)
 
 	def apply_singlepos(self, x):
 		"""

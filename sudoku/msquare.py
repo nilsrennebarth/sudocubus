@@ -29,6 +29,15 @@ class Magicsquare(types.SimpleNamespace):
 	decreased by the length of `found`, and `found` cleared whenever various
 	tries had been made.
 
+	Properties:
+	- N (int): number of rows and columns
+	- digits (int): Number of digits needed to represent all values
+		as decimal numbers
+	- remain (int): Number of positions that don't have a fixed value
+		yet. Cache to measure progress.
+	- stack (list): Stack of state backups for backtracking
+	- givens (list): List of positions and values given initially
+	- cells (list): Linear list of all cells in the puzzle
 	"""
 	def __init__(self, N: int = 5, mkcell=None):
 		"""

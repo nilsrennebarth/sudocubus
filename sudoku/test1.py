@@ -13,6 +13,7 @@ logging.basicConfig(
 	level=logging.DEBUG
 )
 sudo = sudoku.Importer('../mine.txt').sudoku
+sudo.apply_givens()
 sudo.print()
 
 sol = sudo.solve()

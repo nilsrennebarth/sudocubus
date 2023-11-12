@@ -18,123 +18,17 @@ and boxes are lists of references to the corresponding cells.
 import types
 import logging
 
+from cell import NCell
+import msquare
+from exceptions import Unsolvable
+
 log = logging.getLogger(__name__)
 
 
-class Unsolvable(Exception):
-	pass
-
-
-class Cell:
+class Cell(NCell):
 	"""
 	A single cell
-
-	If its value is a number, the cell is either a given or its has
-	a fixed value already.
-
-	If its value is a set, it contains the numbers that have not been
-	excluded yet.
-
-	A cell is initialized with the full set of candidates of course.
-
-	A cell 'knows' its row and column and the sudoku (parent) it
-	belongs to.
 	"""
-	def __init__(self, N: int, r: int, c: int, parent):
-		self._val = {i + 1 for i in range(N)}
-		self._row = r
-		self._col = c
-		self._parent = parent
-
-	@property
-	def row(self):
-		"""Row number of cell"""
-		return self._row
-
-	@property
-	def col(self):
-		"""Col number of cell"""
-		return self._col
-
-	@property
-	def parent(self):
-		"""Sudoku we belong to"""
-		return self._parent
-
-	@property
-	def val(self):
-		return self._val
-
-	@val.setter
-	def val(self, num):
-		"""
-		We protect the cell from being set to a different value if
-		it already has one.
-
-		We also protect the cell from being set to a value that has
-		been excluded already.
-		"""
-		if isinstance(self._val, int):
-			if self._val == num:
-				return
-			raise Unsolvable(f'{self.name} already set to {self._val}')
-		if num not in self._val:
-			raise Unsolvable(f'{self.name} value {num} not available')
-		self._val = num
-		self.parent.found.append(self)
-
-	@property
-	def name(self):
-		return f'cell({self.row + 1}, {self.col + 1})'
-
-	def xclude(self, num: int):
-		"""
-		Remove a candidate.
-
-		Removing a candidate from a fixed cell is ignored.
-
-		Removing a candidate from a cell where it does not exist is
-		ignored.
-
-		Removing the last candidate from a cell raises an Unsolvable
-		exception.
-		"""
-		if isinstance(self._val, int):
-			return
-		self._val.discard(num)
-		if len(self._val) == 0:
-			raise Unsolvable(f'No candidate for {self.name}')
-
-	def is_fix(self):
-		return isinstance(self._val, int)
-
-	def getany(self):
-		"""
-		Get any candidate for the cell
-		"""
-		if self.is_fix():
-			raise ValueError(f'Cell C({self.row}, {self.col}) is fixed')
-		return iter(self._val).__next__()
-
-	def backup(self):
-		"""
-		Get a copy of the value for backup
-
-		If the current value is and int, we can simply return it,
-		but if it is a set we need to return a copy, not just a
-		reference to it.
-		"""
-		if isinstance(self._val, int):
-			return self._val
-		else:
-			return self._val.copy()
-
-	def restore(self, val):
-		"""
-		Restore value from a backup
-		"""
-		self._val = val
-
 	def print(self):
 		"""
 		ASCII art representation
@@ -168,56 +62,26 @@ class Cell:
 		return fix() if self.is_fix() else uns()
 
 
-class SudokuBck(types.SimpleNamespace):
-
-	def __init__(self, sudoku):
-		self.remain = sudoku.remain
-		self.vals = [cell.backup() for cell in sudoku.cells]
-
-
-class Sudoku(types.SimpleNamespace):
+class Sudoku(msquare.Magicsquare):
 	"""
-	The cells in a sudoku are a simple linear list, containing
-	the first row, then the second row, etc.
+	A sudoku puzzle
 
-	The rows, columns and boxes are just references to the proper
-	cells.
+	A sudoku is a magic square with additional structure: boxes.
+	For a solution, not only rows and columns but also all boxes
+	must not contain the same value in different positions.
+	The N of the magic square is the product of the numbers n and m
+	being the width and height of rectangles that cover the square.
+
+	As usual, the boxes are just references to the proper cells.
 
 	The boxes are n columns wide and m rows hign. Box number 0 is
 	in the upper left coner, boxes are numbered first left to right,
 	then top to down.
-
-	The `found` property is a list that gets added to automatically,
-	whenever a cell changes from unknown to a fixed	value.
-
-	It is supposed to be added to exclusively in this way and can be used to
-	check if any progress has been made.  The remain` property on the other
-	hand is supposed to be decreased by the length of `found`, and `found`
-	cleared whenever various tries had been made.
 	"""
-
 	def __init__(self, n: int = 3, m: int = 3):
+		super().__init__(n * m, Cell)
 		self.n = n
 		self.m = m
-		self.N = n * m
-		self.digits = len(str(self.N))
-		self.found = []
-		self.remain = self.N * self.N
-		self.stack = []
-		self.cells = [
-			Cell(self.N, i, j, self)
-			for i in range(self.N)
-			for j in range(self.N)
-		]
-		self.givens = []
-		self.rows = [
-			[self.cells[j * self.N + i] for i in range(self.N)]
-			for j in range(self.N)
-		]
-		self.cols = [
-			[self.cells[j + i * self.N] for i in range(self.N)]
-			for j in range(self.N)
-		]
 		self.boxs = [
 			[
 				self.cells[
@@ -230,124 +94,15 @@ class Sudoku(types.SimpleNamespace):
 			for c in range(self.n)
 			for r in range(self.m)
 		]
-
-	def cell(self, row: int, col: int) -> Cell:
-		"""Cell by row and column numbers"""
-		return self.cells[self.N * row + col]
-
-	def row(self, cell: Cell):
-		"""Row containing the given cell"""
-		return self.rows[cell.row]
-
-	def col(self, cell: Cell):
-		"""Col containing the given cell"""
-		return self.cols[cell.col]
+		self.houses.append(self.boxs)
+		self.housenames.append('box')
+		self.myhouse.append(self.box)
 
 	def box(self, cell: Cell):
 		"""Box containing the given cell"""
 		boxr = cell.row // self.m
 		boxc = cell.col // self.n
 		return self.boxs[boxr * self.m + boxc]
-
-	def name(self, cont: list, n):
-		if cont is self.rows:
-			name = 'row'
-		elif cont is self.cols:
-			name = 'col'
-		elif cont is self.boxs:
-			name = 'box'
-		else:
-			raise ValueError(f'Unknown Container {cont}')
-		return f'{name}({n + 1})'
-
-	def add_given(self, row: int, col: int, val: int) -> None:
-		self.givens.append((self.cell(row, col), val))
-
-	def backup(self):
-		"""
-		Push a backup of all current cell values on the stack
-		"""
-		self.stack.append(SudokuBck(self))
-
-	def restore(self):
-		"""
-		Restore the cell values from the top of the stack
-		"""
-		bck = self.stack.pop()
-		for i, val in enumerate(bck.vals):
-			self.cells[i].restore(val)
-		self.remain = bck.remain
-
-	def setcell(self, cell, value, comment):
-		"""
-		Set cell to value
-
-		After setting the cell is done also remove the value from all
-		other candidate cell in all other houses the cell is in. This
-		may raise an Unsolvable exception.
-		"""
-		log.debug(f'Set {cell.name} = {value} ({comment})')
-		cell.val = value
-		self.remain -= 1
-		for house in [self.row(cell), self.col(cell), self.box(cell)]:
-			for c in house:
-				if c is not cell: c.xclude(cell.val)
-
-	def rule_singlecandidate(self):
-		for cell in self.cells:
-			if cell.is_fix() or len(cell.val) > 1: continue
-			log.debug('Found single candidate')
-			self.setcell(cell, cell.getany(), 'single-candidate')
-
-	def try_singlepos_x(self, x):
-		"""
-		Apply single position rule
-
-		If for a number x only a single cell in
-		a row, column or box exists where x is a candidate,
-		set that cell to x
-		"""
-		log.debug(f'Try singlepos for {x}')
-		for houses in [self.rows, self.cols, self.boxs]:
-			# When we searched a house for possible locations of x, we need to
-			# differentiate between having found no cell (unsolvable), one
-			# cell that is set already (rule does not apply), one cell that is
-			# not already set (jay) and multiple cells. We use two variables:
-			# `cell` which is set to the cell where the rule apples, or None,
-			# and `found` if the value can be found at all
-			for n, house in enumerate(houses):
-				cell = None
-				found = False
-				for c in house:
-					if c.is_fix():
-						if c.val == x:
-							# Value already set in that house
-							found = True
-							break
-						else:
-							continue
-					if x not in c.val:
-						continue
-					# c has x as candidate
-					found = True
-					if cell is None:
-						# we found the first cell with x as candidate
-						cell = c
-					else:
-						# rule not applicable in this house
-						cell = None
-						break
-				if not found:
-					raise Unsolvable(f'In {self.name(houses, n)}: no {x}')
-				if cell:
-					self.setcell(cell, x, f'single-position-{x}')
-
-	def rule_singlepos(self):
-		"""
-		Try singleposition rule for all numbers
-		"""
-		for x in range(1, self.N + 1):
-			self.try_singlepos_x(x)
 
 	def apply_rules(self):
 		while True:
@@ -384,7 +139,7 @@ class Sudoku(types.SimpleNamespace):
 		self.print()
 		cell = self.findtry()
 		log.debug(f'Pivot {cell.name} with {len(cell.val)} candidates')
-		tryset = cell.backup()
+		tryset = cell.state()
 		for cand in tryset:
 			log.debug(f'[{level}] Try setting {cell.name} = {cand}')
 			self.backup()
@@ -397,18 +152,7 @@ class Sudoku(types.SimpleNamespace):
 			self.restore()
 		raise Unsolvable(f'Tried all candidates for {cell.name}')
 
-	def apply_givens(self):
-		for cell, val in self.givens:
-			try:
-				self.setcell(cell, val, 'given')
-			except Unsolvable as e:
-				log.debug(f'Error applying givens: {e}')
-				return False
-		return True
-
 	def solve(self):
-		if not self.apply_givens():
-			return None
 		if self.solve_r():
 			return self
 		else:

@@ -74,7 +74,6 @@ class NCell(BaseCell):
 		if num not in self._val:
 			raise Unsolvable(f'{self.name} value {num} not available')
 		self._val = num
-		self.parent.found.append(self)
 
 	def xclude(self, num: int):
 		"""

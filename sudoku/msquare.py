@@ -42,7 +42,6 @@ class Magicsquare(types.SimpleNamespace):
 		self.N = N
 		self.mkcell = mkcell or cell.NCell
 		self.digits = len(str(self.N))
-		self.found = []
 		self.remain = self.N * self.N
 		self.stack = []
 		self.givens = []

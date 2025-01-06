@@ -13,7 +13,7 @@ class Magicsquare(types.SimpleNamespace):
 	A magic square.
 
 	For a solution of a magic square each cell must have a value such that each
-	row	and each column hold exactly N differnent numbers.
+	row	and each column hold exactly N different numbers.
 
 	The cells are a simple linear list, containing the first row, then
 	the second row, etc.

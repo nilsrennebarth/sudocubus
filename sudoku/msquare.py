@@ -38,8 +38,11 @@ class Magicsquare(types.SimpleNamespace):
 	- stack (list): Stack of state backups for backtracking
 	- givens (list): List of positions and values given initially
 	- cells (list): Linear list of all cells in the puzzle
+	- myhouse (iterator): iterator over all kinds of houses. Returns
+	  a function that takes a cell C as argument and returns that house
+	  of the given kind that contains C.
 	"""
-	def __init__(self, N: int = 5, mkcell=None):
+	def __init__(self, N: int = 5, mkcell=None, name=None):
 		"""
 		Create a magic square
 
@@ -50,6 +53,8 @@ class Magicsquare(types.SimpleNamespace):
 		"""
 		self.N = N
 		self.mkcell = mkcell or cell.NCell
+		if name is not None:
+			self.name = name
 		self.digits = len(str(self.N))
 		self.remain = self.N * self.N
 		self.stack = []

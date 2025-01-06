@@ -30,12 +30,15 @@ class BaseCell:
 
 	@property
 	def parent(self):
-		"""Sudoku we belong to"""
+		"""Puzzle we belong to"""
 		return self._parent
 
 	@property
 	def name(self):
-		return f'cell({self.row + 1}, {self.col + 1})'
+		loc = getattr(self._parent, 'name', '')
+		if loc:
+			loc += ': '
+		return f'{loc}cell({self.row + 1}, {self.col + 1})'
 
 
 class NCell(BaseCell):

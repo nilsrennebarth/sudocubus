@@ -188,7 +188,7 @@ class Magicsquare(types.SimpleNamespace):
 			# differentiate between having found no cell (unsolvable), one
 			# cell that is set already (rule does not apply), one cell that is
 			# not already set (jay) and multiple cells. We use two variables:
-			# `cell` which is set to the cell where the rule apples, or None,
+			# `cell` which is set to the cell where the rule applies, or None,
 			# and `found` if the value can be found at all
 			for n, house in enumerate(houses):
 				cell = None

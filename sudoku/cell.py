@@ -45,9 +45,6 @@ class NCell(BaseCell):
 	"""
 	A cell that can hold exactly one value in the range 1..N
 
-	note that the internal representation actually uses the
-	value 0..N-1.
-
 	A cell starts as a set holding the values 1..N. As long as
 	its value has not yet been determined, its value is the set
 	of all (still) possible values. Once its value is determined,
@@ -55,7 +52,7 @@ class NCell(BaseCell):
 	"""
 	def __init__(self, N: int, r: int, c: int, parent):
 		super().__init__(r, c, parent)
-		self._val = {i + 1 for i in range(N)}
+		self._val = {i for i in range(1, N + 1)}
 
 	@property
 	def val(self):

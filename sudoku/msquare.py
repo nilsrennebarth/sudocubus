@@ -99,8 +99,8 @@ class Magicsquare(types.SimpleNamespace):
 		log.debug(f'Set {cell.name} = {value} ({comment})')
 		cell.val = value
 		self.remain -= 1
-		for func in self.myhouse:
-			for c in func(cell):
+		for house in self.myhouse:
+			for c in house(cell):
 				if c is not cell: c.xclude(cell.val)
 
 	def setgivens(self, *args):

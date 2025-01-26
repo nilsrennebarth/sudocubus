@@ -103,6 +103,16 @@ class Magicsquare(types.SimpleNamespace):
 			for c in func(cell):
 				if c is not cell: c.xclude(cell.val)
 
+	def setgivens(self, *args):
+		"""
+		Set multiple givens
+
+		Each must be given as a (row, col, val) tuple. Note that this
+		may already rise an Unsolvable exception.
+		"""
+		for row, col, val in args:
+			self.setcell(self.cell(row, col), val, "Set Givens")
+
 	def state(self):
 		"""
 		Value representing the complete state
@@ -130,21 +140,6 @@ class Magicsquare(types.SimpleNamespace):
 		for i, val in enumerate(states):
 			self.cells[i].restore(val)
 		self.remain = remain
-
-	def add_given(self, row: int, col: int, val: int) -> None:
-		"""
-		Register a given value
-		"""
-		self.givens.append((self.cell(row, col), val))
-
-	def apply_givens(self):
-		for cell, val in self.givens:
-			try:
-				self.setcell(cell, val, 'given')
-			except Unsolvable as e:
-				log.debug(f'Error applying givens: {e}')
-				return False
-		return True
 
 	def housename(self, memberlist, n):
 		"""

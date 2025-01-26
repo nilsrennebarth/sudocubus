@@ -25,6 +25,14 @@ from exceptions import Unsolvable
 log = logging.getLogger(__name__)
 
 
+def intornone(i):
+	"""Helper: String to int or None"""
+	try:
+		return int(i)
+	except ValueError:
+		return None
+
+
 class Cell(NCell):
 	"""
 	A single cell
@@ -183,36 +191,32 @@ class Sudoku(msquare.Magicsquare):
 				print(''.join(line))
 			print('+' + ('-' * cw + '+') * self.N)
 
+	@classmethod
+	def fromfile(cls, file: str):
+		"""
+		Import sudoku from file
 
-class Importer(types.SimpleNamespace):
+		The file must start with the numbers n and m on the first line.
+		For a standard sudoku where n and m are both 3, that line can be
+		omitted however.
+		The next lines must yield n * m strings when split at whitespace,
+		and each of the strings that can be converted to an int represents
+		a given.
+		"""
 
-	def __init__(self, file):
-		self.file = file
-		self.importfile()
-
-	def importfile(self):
-		with open(self.file, 'r') as fd:
-			line = fd.readline()
-			if line.split() == 2:
-				n, m = map(int, line.split())
-				self.sudoku = Sudoku(n, m)
-				off = 0
-			else:
-				self.sudoku = Sudoku(3, 3)
-				self.importline(0, line)
-				off = 1
-			for r, line in enumerate(fd, start=off):
-				self.importline(r, line)
-
-	def importline(self, row, line):
-		ele = line.split()
-		if len(ele) != self.sudoku.N:
-			raise ValueError(
-				f'Error in line {row}: {self.sudoku.N} values expected'
-			)
-		for col, e in enumerate(ele):
-			try:
-				v = int(e)
-			except ValueError:
-				continue
-			self.sudoku.add_given(row, col, v)
+		off = 0
+		with open(file, 'r') as fd:
+			for row, line in enumerate(fd):
+				if row == 0:
+					if line.split() == 2:
+						n, m = map(int, line.split())
+						sudoku = cls(n, m)
+						off = 1
+						continue
+					else:
+						sudoku = cls(3,3)
+				sudoku.setgivens(*[(row - off, col, val)
+					for col, val in enumerate(map(intornone, line.split()))
+					if val is not None
+				])
+		return sudoku

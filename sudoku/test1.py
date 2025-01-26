@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import logging
 
-import sudoku
+from sudoku import Sudoku
 
 #logging.basicConfig(
 #	format='%(asctime)s: %(message)s',
@@ -12,8 +12,7 @@ logging.basicConfig(
 	format='%(asctime)s: %(message)s',
 	level=logging.DEBUG
 )
-sudo = sudoku.Importer('../mine.txt').sudoku
-sudo.apply_givens()
+sudo = Sudoku.fromfile('../mine.txt')
 sudo.print()
 
 sol = sudo.solve()

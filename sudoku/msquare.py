@@ -22,12 +22,8 @@ class Magicsquare(types.SimpleNamespace):
 
 	The `givens` are the values initially given.
 
-	The `found` property is a list that gets added to automatically, whenever
-	a cell changes from unknown to a fixed value.  It is supposed to be added
-	to exclusively in this way and can be used to check if any progress has
-	been made.  The remain` property on the other hand is supposed to be
-	decreased by the length of `found`, and `found` cleared whenever various
-	tries had been made.
+	The `remain` property counts the number of cells that have an unknown value and
+	must be decreased every time the value for a new cell becomes known.
 
 	Properties:
 	- N (int): number of rows and columns
@@ -41,6 +37,10 @@ class Magicsquare(types.SimpleNamespace):
 	- myhouse (iterator): iterator over all kinds of houses. Returns
 	  a function that takes a cell C as argument and returns that house
 	  of the given kind that contains C.
+	- myrules (iterator): iterator over rules to apply. A rule is a
+	  method without an argument that returns True if any progress in
+	  finding a solution has been made. It searches
+	  various patterns and deducts new values or exclusions.
 	"""
 	def __init__(self, N: int = 5, mkcell=None, name=None):
 		"""
@@ -75,8 +75,9 @@ class Magicsquare(types.SimpleNamespace):
 		self.houses = [self.rows, self.cols]
 		self.housenames = ['row', 'col']
 		self.myhouse = [self.row, self.col]
+		self.myrules = [self.rule_singlecandidate, self.rule_singlepos]
 
-	def cell(self, row: int, col: int):
+	def getcell(self, row: int, col: int):
 		"""Cell by row and column numbers"""
 		return self.cells[self.N * row + col]
 
@@ -111,7 +112,7 @@ class Magicsquare(types.SimpleNamespace):
 		may already rise an Unsolvable exception.
 		"""
 		for row, col, val in args:
-			self.setcell(self.cell(row, col), val, "Set Givens")
+			self.setcell(self.getcell(row, col), val, "Set Givens")
 
 	def state(self):
 		"""
@@ -168,6 +169,8 @@ class Magicsquare(types.SimpleNamespace):
 			if cell.is_fix() or len(cell.val) > 1: continue
 			log.debug('Found single candidate')
 			self.setcell(cell, cell.getany(), 'single-candidate')
+			return True
+		return False
 
 	def try_singlepos_x(self, x):
 		"""
@@ -212,10 +215,65 @@ class Magicsquare(types.SimpleNamespace):
 					raise Unsolvable(f'In {where}: no {x}')
 				if cell:
 					self.setcell(cell, x, f'single-position-{x}')
+					return True
+		return False
 
 	def rule_singlepos(self):
 		"""
 		Try singleposition rule for all numbers
 		"""
 		for x in range(1, self.N + 1):
-			self.try_singlepos_x(x)
+			if self.try_singlepos_x(x):
+				return True
+		return False
+
+	def apply_rules(self) -> bool:
+		for rule in self.myrules:
+			if rule():
+				return True
+		return False
+
+	def findtry(self) -> cell.NCell:
+		"""
+		Find an unsolved cell with the smallest number of potential values
+		"""
+		res = None
+		for c in self.cells:
+			if c.is_fix(): continue
+			if len(c.val) == 2:
+				return c
+			if res is None or len(c.val) < len(res.val):
+				res = c
+		return res
+
+	def solve_r(self):
+		level = len(self.stack)
+		try:
+			while self.apply_rules() and self.remain > 0:
+				pass
+		except Unsolvable as e:
+			log.debug(f'[{level}] Applying rules: {e}')
+			return False
+		if self.remain == 0:
+			return True
+		self.print()
+		cell = self.findtry()
+		log.debug(f'Pivot {cell.name} with {len(cell.val)} candidates')
+		tryset = cell.state()
+		for cand in tryset:
+			log.debug(f'[{level}] Try setting {cell.name} = {cand}')
+			self.backup()
+			self.setcell(cell, cand, f'try-{cand}')
+			try:
+				if self.solve_r():
+					return True
+			except Unsolvable as e:
+				log.debug(f'[{level}] {cand} leads to {e}')
+			self.restore()
+		raise Unsolvable(f'Tried all candidates for {cell.name}')
+
+	def solve(self):
+		if self.solve_r():
+			return self
+		else:
+			return None

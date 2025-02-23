@@ -112,60 +112,6 @@ class Sudoku(msquare.Magicsquare):
 		boxc = cell.col // self.n
 		return self.boxs[boxr * self.m + boxc]
 
-	def apply_rules(self):
-		while True:
-			rem1 = self.remain
-			while True:
-				rem2 = self.remain
-				self.rule_singlecandidate()
-				if self.remain == rem2: break
-			self.rule_singlepos()
-			if self.remain == rem1: break
-
-	def findtry(self) -> Cell:
-		"""
-		Find a cell with few values for tries
-		"""
-		res = None
-		for c in self.cells:
-			if c.is_fix(): continue
-			if len(c.val) == 2:
-				return c
-			if res is None or len(c.val) < len(res.val):
-				res = c
-		return res
-
-	def solve_r(self):
-		level = len(self.stack)
-		try:
-			self.apply_rules()
-		except Unsolvable as e:
-			log.debug(f'[{level}] Applying rules: {e}')
-			return False
-		if self.remain == 0:
-			return True
-		self.print()
-		cell = self.findtry()
-		log.debug(f'Pivot {cell.name} with {len(cell.val)} candidates')
-		tryset = cell.state()
-		for cand in tryset:
-			log.debug(f'[{level}] Try setting {cell.name} = {cand}')
-			self.backup()
-			self.setcell(cell, cand, 'try-{cand}')
-			try:
-				if self.solve_r():
-					return True
-			except Unsolvable as e:
-				log.debug(f'[{level}] {cand} leads to {e}')
-			self.restore()
-		raise Unsolvable(f'Tried all candidates for {cell.name}')
-
-	def solve(self):
-		if self.solve_r():
-			return self
-		else:
-			return None
-
 	def print(self):
 		"""
 		ASCII art representation
@@ -183,7 +129,7 @@ class Sudoku(msquare.Magicsquare):
 		for r in range(self.N):
 			lines = [['|'] for cl in range(self.m)]
 			for c in range(self.N):
-				cell = self.cell(r, c).print()
+				cell = self.getcell(r, c).print()
 				for i in range(self.m):
 					lines[i].append(cell[i])
 					lines[i].append('|')

@@ -208,7 +208,7 @@ class Sudoku(msquare.Magicsquare):
 		with open(file, 'r') as fd:
 			for row, line in enumerate(fd):
 				if row == 0:
-					if line.split() == 2:
+					if len(line.split()) == 2:
 						n, m = map(int, line.split())
 						sudoku = cls(n, m)
 						off = 1

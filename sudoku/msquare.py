@@ -142,7 +142,7 @@ class Magicsquare(types.SimpleNamespace):
 			self.cells[i].restore(val)
 		self.remain = remain
 
-	def housename(self, memberlist, n):
+	def housename(self, memberlist, n) -> str:
 		"""
 		Return human readable name for a given house
 
@@ -158,12 +158,15 @@ class Magicsquare(types.SimpleNamespace):
 				return f'{self.housenames[idx]}({n + 1})'
 		raise ValueError(f'Unknown Container {memberlist}')
 
-	def rule_singlecandidate(self):
+	def rule_singlecandidate(self) -> bool:
 		"""
 		Check if a cell has only one remaining candidate
 
 		If yes, the cell is set to the candidate. This may rise an Unsolvable
 		exception.
+
+		Return:
+			True if a new cell got a fixed value
 		"""
 		for cell in self.cells:
 			if cell.is_fix() or len(cell.val) > 1: continue
@@ -172,13 +175,16 @@ class Magicsquare(types.SimpleNamespace):
 			return True
 		return False
 
-	def try_singlepos_x(self, x):
+	def try_singlepos_x(self, x) -> bool:
 		"""
 		Apply single position rule
 
 		If for a number x only a single cell in
 		a row, column or box exists where x is a candidate,
 		set that cell to x
+
+		Return:
+			True if a new cell got a fixed value
 		"""
 		log.debug(f'Try singlepos for {x}')
 		for houses in self.houses:

@@ -7,8 +7,72 @@ from exceptions import Unsolvable
 
 log = logging.getLogger(__name__)
 
+class BasePuzzle(types.SimpleNamespace):
+	"""
+	Abstract base class for symbol placement puzzles
 
-class Magicsquare(types.SimpleNamespace):
+	Our child class must provide:
+	- state() function that returns the puzzle's state
+	- restorestate() function that restores a given state
+	- findtry() function that returns a cell where the
+	  state() function returns a set of possible values, or None
+	  when no such cell exists.
+	- myrules property: A list of parameterless methods, each tries to
+	  exclude values at certain cells or obtain a final values for a
+	  cell. The functions are to return True if any progress has been
+	  made.
+	"""
+	def __init__(self):
+		self.stack = []
+
+	def backup(self):
+		"""
+		Push a backup of our current state on the stack
+		"""
+		self.stack.append((self.remain, self.state()))
+
+	def restore(self):
+		"""
+		Restore the state from top of the stack
+		"""
+		remain, state = self.stack.pop()
+		self.restorestate(state)
+		self.remain = remain
+
+	def solve_r(self):
+		level = len(self.stack)
+		try:
+			while self.apply_rules() and self.remain > 0:
+				pass
+		except Unsolvable as e:
+			log.debug(f'[{level}] Applying rules: {e}')
+			return False
+		if self.remain == 0:
+			return True
+		self.print()
+		cell = self.findtry()
+		log.debug(f'Pivot {cell.name} with {len(cell.val)} candidates')
+		tryset = cell.val.copy()
+		for cand in tryset:
+			log.debug(f'[{level}] Try setting {cell.name} = {cand}')
+			self.backup()
+			try:
+				cell.setval(cand, f'try-{cand}')
+				if self.solve_r():
+					return True
+			except Unsolvable as e:
+				log.debug(f'[{level}] {cand} leads to {e}')
+			self.restore()
+		raise Unsolvable(f'Tried all candidates for {cell.name}')
+
+	def solve(self):
+		if self.solve_r():
+			return self
+		else:
+			return None
+
+
+class Magicsquare(BasePuzzle):
 	"""
 	A magic square.
 
@@ -30,7 +94,7 @@ class Magicsquare(types.SimpleNamespace):
 	- digits (int): Number of digits needed to represent all values
 		as decimal numbers
 	- remain (int): Number of positions that don't have a fixed value
-		yet. Cache to measure progress.
+		yet. Cache to determine when puzzle is solved.
 	- stack (list): Stack of state backups for backtracking
 	- givens (list): List of positions and values given initially
 	- cells (list): Linear list of all cells in the puzzle
@@ -51,14 +115,13 @@ class Magicsquare(types.SimpleNamespace):
 			mkcell: constructor for a cell taking arguments
 				row, column and the container object.
 		"""
+		super().__init__()
 		self.N = N
 		self.mkcell = mkcell or cell.NCell
 		if name is not None:
 			self.name = name
 		self.digits = len(str(self.N))
 		self.remain = self.N * self.N
-		self.stack = []
-		self.givens = []
 		self.cells = [
 			self.mkcell(self.N, i, j, self)
 			for i in range(self.N)
@@ -89,20 +152,23 @@ class Magicsquare(types.SimpleNamespace):
 		"""Column containing the given cell"""
 		return self.cols[cell.col]
 
-	def setcell(self, cell, value, comment):
+	def cellgotval(self, cell, val):
 		"""
-		Set cell to value
+		A cell got a value
 
-		After setting the cell is done also remove the value from all
-		other candidate cell in all other houses the cell is in. This
-		may raise an Unsolvable exception.
+		Will be called when one of our cells got a fixed value. We can
+		then remove the value from the candidates of all other cells of
+		the same house.
+
+		This may raise an Unsolvable exception.
 		"""
-		log.debug(f'Set {cell.name} = {value} ({comment})')
-		cell.val = value
 		self.remain -= 1
 		for house in self.myhouse:
 			for c in house(cell):
-				if c is not cell: c.xclude(cell.val)
+				if c is not cell: c.xclude(val)
+		cellgotval = getattr(getattr(self, 'parent', None), 'cellgotval', None)
+		if cellgotval is not None:
+			cellgotval(self, cell, val)
 
 	def setgivens(self, *args):
 		"""
@@ -112,7 +178,7 @@ class Magicsquare(types.SimpleNamespace):
 		may already rise an Unsolvable exception.
 		"""
 		for row, col, val in args:
-			self.setcell(self.getcell(row, col), val, "Set Givens")
+			self.getcell(row, col).setval(val, "Set Givens")
 
 	def state(self):
 		"""
@@ -125,22 +191,14 @@ class Magicsquare(types.SimpleNamespace):
 		For a sudoku this is the number of remaining cells to be solved and
 		a list of current cells.
 		"""
-		return self.remain, [cell.state() for cell in self.cells]
+		return [cell.state() for cell in self.cells]
 
-	def backup(self):
+	def restorestate(self, state):
 		"""
-		Push a backup of our current state on the stack
+		Restore puzzle to the given state
 		"""
-		self.stack.append(self.state())
-
-	def restore(self):
-		"""
-		Restore the cell values from the state at top of the stack
-		"""
-		remain, states = self.stack.pop()
-		for i, val in enumerate(states):
+		for i, val in enumerate(state):
 			self.cells[i].restore(val)
-		self.remain = remain
 
 	def housename(self, memberlist, n) -> str:
 		"""
@@ -171,7 +229,7 @@ class Magicsquare(types.SimpleNamespace):
 		for cell in self.cells:
 			if cell.is_fix() or len(cell.val) > 1: continue
 			log.debug('Found single candidate')
-			self.setcell(cell, cell.getany(), 'single-candidate')
+			cell.setval(cell.getany(), 'single-candidate')
 			return True
 		return False
 
@@ -220,7 +278,7 @@ class Magicsquare(types.SimpleNamespace):
 					where = self.housename(houses, n)
 					raise Unsolvable(f'In {where}: no {x}')
 				if cell:
-					self.setcell(cell, x, f'single-position-{x}')
+					cell.setval(x, f'single-position-{x}')
 					return True
 		return False
 
@@ -252,34 +310,3 @@ class Magicsquare(types.SimpleNamespace):
 				res = c
 		return res
 
-	def solve_r(self):
-		level = len(self.stack)
-		try:
-			while self.apply_rules() and self.remain > 0:
-				pass
-		except Unsolvable as e:
-			log.debug(f'[{level}] Applying rules: {e}')
-			return False
-		if self.remain == 0:
-			return True
-		self.print()
-		cell = self.findtry()
-		log.debug(f'Pivot {cell.name} with {len(cell.val)} candidates')
-		tryset = cell.state()
-		for cand in tryset:
-			log.debug(f'[{level}] Try setting {cell.name} = {cand}')
-			self.backup()
-			self.setcell(cell, cand, f'try-{cand}')
-			try:
-				if self.solve_r():
-					return True
-			except Unsolvable as e:
-				log.debug(f'[{level}] {cand} leads to {e}')
-			self.restore()
-		raise Unsolvable(f'Tried all candidates for {cell.name}')
-
-	def solve(self):
-		if self.solve_r():
-			return self
-		else:
-			return None

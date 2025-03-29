@@ -166,3 +166,18 @@ class Sudoku(msquare.Magicsquare):
 					if val is not None
 				])
 		return sudoku
+
+
+if __name__ == '__main__':
+	import sys
+
+	logging.basicConfig(
+		format='%(levelname).1s:%(message)s', level=logging.DEBUG
+	)
+	puzzle = Sudoku.fromfile(sys.argv[1])
+	puzzle.print()
+	sol = puzzle.solve()
+	if sol is None:
+		print('Sudoku has no solution')
+	else:
+		sol.print()

@@ -58,15 +58,21 @@ class NCell(BaseCell):
 	def val(self):
 		return self._val
 
-	@val.setter
-	def val(self, num):
+	def setval(self, num, comment='unknown reason'):
 		"""
+		Set cell to given value
+
 		We protect the cell from being set to a different value if
 		it already has one.
 
 		We also protect the cell from being set to a value that has
 		been excluded already.
+
+		When the value actually changed from a set to a fixed value,
+		we propagate this to the parent puzzle by calling its cellgotvalue
+		method.
 		"""
+		log.debug(f'Set {self.name} = {num} ({comment})')
 		if isinstance(self._val, int):
 			if self._val == num:
 				return
@@ -74,6 +80,8 @@ class NCell(BaseCell):
 		if num not in self._val:
 			raise Unsolvable(f'{self.name} value {num} not available')
 		self._val = num
+		if hasattr(self.parent,'cellgotval'):
+			self.parent.cellgotval(self, num)
 
 	def xclude(self, num: int):
 		"""

@@ -89,6 +89,21 @@ class Eulero(types.SimpleNamespace):
 			self.rule_singlepairpos
 		]
 
+	def state(self):
+		"""
+		Current state of the puzzle
+		"""
+		return [(s.state(), s.remain) for s in self.square], self.pairs.copy()
+
+	def restorestate(self, state):
+		"""
+		Restore puzzle to the given state
+		"""
+		squares, self.pairs = state
+		for i, s, r in enumerate(squares):
+			self.square[i].restorestate(s)
+			self.square[i].remain = r
+
 	def pcell(self, row, col):
 		"""Primary cell at a position"""
 		return self.square[0].getcell(row, col)

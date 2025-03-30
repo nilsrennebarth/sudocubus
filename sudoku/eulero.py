@@ -4,7 +4,7 @@ import logging
 import re
 
 import msquare
-from cell import BaseCell
+import cell
 from exceptions import Unsolvable
 
 log = logging.getLogger(__name__)
@@ -139,7 +139,7 @@ class Eulero(types.SimpleNamespace):
 		"""
 		pairval = self.pairs[pair]
 		cell = self.pcell(row, col)
-		if isinstance(pairval, BaseCell):
+		if isinstance(pairval, cell.BaseCell):
 			# Pair has been found already
 			if pairval.row != row or pairval.col != col:
 				raise Unsolvable(
@@ -207,7 +207,7 @@ class Eulero(types.SimpleNamespace):
 		and return True, otherwise return False.
 		"""
 		for pair, val in self.pairs.items():
-			if isinstance(val, BaseCell): continue
+			if isinstance(val, cell.BaseCell): continue
 			if len(val) > 1: continue
 			if len(val) == 0:
 				raise Unsolvable(f'No remaining location for pair {pair}')

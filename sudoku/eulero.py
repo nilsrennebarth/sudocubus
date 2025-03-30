@@ -64,7 +64,7 @@ class Eulero(types.SimpleNamespace):
 	- square (list): A list of two magic squares, the first (primary) square
 	  represents the numbers in the left positions, the second square represents
 	  the numbers in the right positions.
-	- pairpos (dict): A dictionary where the keys are all tuples (i, j) with
+	- pairs (dict): A dictionary where the keys are all tuples (i, j) with
 	  i in 0..n-1 and j in 0..n-1. Each value is a set of cells in the primary
 	  magic square. The set contains those positions where the given tuple can
 	  still occur. Initially, when the Eulero is empty and no givens are set,
@@ -75,15 +75,23 @@ class Eulero(types.SimpleNamespace):
 		self.n = n
 		self.square = [msquare.Magicsquare(n) for i in range(2)]
 		self.square[0].name = 'Left'
+		self.square[0].pos = 0
+		self.square[0].parent = self
 		self.square[1].name = 'Right'
+		self.square[1].pos = 1
+		self.square[1].parent = self
+		self.remain = 2 * self.square[0].remain
 		self.pairs = {
 			(i, j): {c for c in self.square[0].cells}
 			for i in range(1, n + 1) for j in range(1, n + 1)
 		}
+		self.myrules = self.square[0].myrules + self.square[1].myrules + [
+			self.rule_singlepairpos
+		]
 
 	def pcell(self, row, col):
 		"""Primary cell at a position"""
-		return self.square[0].cell(row, col)
+		return self.square[0].getcell(row, col)
 
 	def setpair(self, pair:tuple, row, col):
 		"""
@@ -101,11 +109,11 @@ class Eulero(types.SimpleNamespace):
 			# Pair has been found already
 			if pairval.row != row or pairval.col != col:
 				raise Unsolvable(
-					f'Pair {pair} already at ({pairval.row}{pairval.col})'
+					f'Pair {self.pair2str(pair)} already at ({pairval.row}{pairval.col})'
 				)
-			log.warning(f'Pair {pair} has already been set')
+			log.warning(f'Pair {self.pair2str(pair)} has already been set')
 			return
-		log.debug(f'Pair {pair} found at ({row}, {col})')
+		log.debug(f'Pair {self.pair2str(pair)} found at ({row}, {col})')
 		self.pairs[pair] = self.pcell(row, col)
 		# Remove left value from cells where the right value is already set to
 		# the right value of the pair. Same for the right value
@@ -116,12 +124,12 @@ class Eulero(types.SimpleNamespace):
 			if c1.val == pair[1]:
 				c0.xclude(pair[0])
 
-	def setcell(self, pos:int, row:int, col:int, value:int):
+	def cellgotval(self, square, cell, value):
 		"""
-		Remove pairs when a cell receives a value
+		Remove potential pair locations when a cell receives a value
 
 		Whenever a cell in any of the two magic squares receives a value, we
-		can exclude various location from holding specific pairs.
+		can exclude various locations from holding specific pairs.
 
 		If the other cell at the same position already has a value, we must
 		check that this pair hasn't been placed anywhere else, or throw an
@@ -132,7 +140,9 @@ class Eulero(types.SimpleNamespace):
 		`value` in position pos, we discard all cells != C from all houses that
 		C is in from the set of P.
 		"""
-		othercell = self.square[1-pos].cell(row, col)
+		self.remain -= 1
+		pos, row, col = square.pos, cell.row, cell.col
+		othercell = self.square[1-pos].getcell(row, col)
 		# Construct tuples from values at the variable positions pos and 1-pos
 		lpair = [-1, -1]
 		lpair[pos] = value
@@ -156,6 +166,32 @@ class Eulero(types.SimpleNamespace):
 								f'No remaining location for pair {pair}'
 							)
 
+	def rule_singlepairpos(self) -> bool:
+		"""
+		Check if there is a pair that can only occur at a single position. If
+		yes, set both values at that position (left and right) to the fixed value
+		and return True, otherwise return False.
+		"""
+		for pair, val in self.pairs.items():
+			if isinstance(val, BaseCell): continue
+			if len(val) > 1: continue
+			if len(val) == 0:
+				raise Unsolvable(f'No remaining location for pair {pair}')
+			pro = False
+			cell = val.pop()  # cell is in left Magicsquare
+			log.debug(f'Pair {self.pair2str(pair)} must be at ({cell.row}, {cell.col})')
+			if isinstance(cell.val, set):
+				pro = True
+				cell.setval(pair[0], "Left of single location pair")
+				self.setcell(0, cell.row, cell.col, pair[0])
+			othercell = self.square[1].getcell(cell.row, cell.col)
+			if isinstance(othercell.val, set):
+				pro = True
+				othercell.setval(pair[1], "Right of single location pair")
+				self.setcell(1, cell.row, cell.col, pair[1])
+			self.pairs[pair] = cell
+			return pro
+
 	def setgivens(self, *args):
 		"""
 		Set multiple givens in an Eulero
@@ -166,7 +202,7 @@ class Eulero(types.SimpleNamespace):
 		"""
 		for pos, row, col, val in args:
 			msquare = self.square[pos]
-			msquare.setcell(msquare.cell(row,col), val, "Set Givens")
+			msquare.setcell(msquare.getcell(row,col), val, "Set Givens")
 			self.setcell(pos, row, col, val)
 
 	def cell2str(self, cell):
@@ -177,10 +213,14 @@ class Eulero(types.SimpleNamespace):
 		blank for each if no value has been found yet. Then padded to the max width + 1
 		"""
 		v1 = chr(ord('A') + cell.val - 1) if isinstance(cell.val, int) else ' '
-		v2 = self.square[1].cell(cell.row, cell.col).val
+		v2 = self.square[1].getcell(cell.row, cell.col).val
 		v2 = str(v2) if isinstance(v2, int) else ' '
 		v2 += ' ' * (len(str(self.n)) - len(v2))
 		return v1 + v2
+
+	def pair2str(self, p) -> str:
+		"""String representation of an eulero cell value"""
+		return chr(ord('A') + p[0] - 1) + str(p[1])
 
 	def quickprint(self, withlines=True):
 		"""
@@ -234,3 +274,17 @@ class Eulero(types.SimpleNamespace):
 					 for pos, val in euleroval(fullval)]
 				)
 		return puzzle
+
+if __name__ == '__main__':
+	import sys
+
+	logging.basicConfig(
+		format='%(levelname).1s:%(message)s', level=logging.DEBUG
+	)
+	puzzle = Eulero.fromfile(sys.argv[1])
+	puzzle.quickprint()
+	sol = puzzle.solve()
+	if sol is None:
+		print('Eulero has no solution')
+	else:
+		sol.print()

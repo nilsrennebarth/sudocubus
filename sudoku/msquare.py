@@ -39,6 +39,12 @@ class BasePuzzle(types.SimpleNamespace):
 		self.restorestate(state)
 		self.remain = remain
 
+	def apply_rules(self) -> bool:
+		for rule in self.myrules:
+			if rule():
+				return True
+		return False
+
 	def solve_r(self):
 		level = len(self.stack)
 		try:
@@ -286,14 +292,9 @@ class Magicsquare(BasePuzzle):
 		"""
 		Try singleposition rule for all numbers
 		"""
+		log.debug(f'Try singlepos rule')
 		for x in range(1, self.N + 1):
 			if self.try_singlepos_x(x):
-				return True
-		return False
-
-	def apply_rules(self) -> bool:
-		for rule in self.myrules:
-			if rule():
 				return True
 		return False
 

@@ -108,6 +108,25 @@ class Eulero(types.SimpleNamespace):
 		"""Primary cell at a position"""
 		return self.square[0].getcell(row, col)
 
+	def findtry(self) -> cell.NCell:
+		"""
+		Find an unsolved cell with the smalles number of potential values
+		"""
+		res = None
+		if self.square[0].remain != 0:
+			res = self.square[0].findtry()
+		if res is not None and len(res.val) == 2:
+			return res
+		r2 = self.square[1].findtry()
+		if res is None:
+			return r2
+		elif r2 is None:
+			return res
+		elif len(res.val) < len(r2.val):
+			return res
+		else:
+			return r2
+
 	def setpair(self, pair:tuple, row, col):
 		"""
 		Set location of a pair
@@ -198,12 +217,10 @@ class Eulero(types.SimpleNamespace):
 			if isinstance(cell.val, set):
 				pro = True
 				cell.setval(pair[0], "Left of single location pair")
-				self.setcell(0, cell.row, cell.col, pair[0])
 			othercell = self.square[1].getcell(cell.row, cell.col)
 			if isinstance(othercell.val, set):
 				pro = True
 				othercell.setval(pair[1], "Right of single location pair")
-				self.setcell(1, cell.row, cell.col, pair[1])
 			self.pairs[pair] = cell
 			return pro
 
@@ -217,8 +234,7 @@ class Eulero(types.SimpleNamespace):
 		"""
 		for pos, row, col, val in args:
 			msquare = self.square[pos]
-			msquare.setcell(msquare.getcell(row,col), val, "Set Givens")
-			self.setcell(pos, row, col, val)
+			msquare.getcell(row,col).setval(val, "Set Givens")
 
 	def cell2str(self, cell):
 		"""
@@ -256,6 +272,9 @@ class Eulero(types.SimpleNamespace):
 			lines.append(border)
 			lines.insert(0, border)
 		print('\n'.join(lines))
+
+	def print(self):
+		quickprint()
 
 	@classmethod
 	def fromfile(cls, file:str):

@@ -250,7 +250,6 @@ class Magicsquare(BasePuzzle):
 		Return:
 			True if a new cell got a fixed value
 		"""
-		log.debug(f'Try singlepos for {x}')
 		for houses in self.houses:
 			# When we searched a house for possible locations of x, we need to
 			# differentiate between having found no cell (unsolvable), one
@@ -280,11 +279,11 @@ class Magicsquare(BasePuzzle):
 						# rule not applicable in this house
 						cell = None
 						break
+				where = self.housename(houses, n)
 				if not found:
-					where = self.housename(houses, n)
 					raise Unsolvable(f'In {where}: no {x}')
 				if cell:
-					cell.setval(x, f'single-position-{x}')
+					cell.setval(x, f'In {where}: single place for {x}')
 					return True
 		return False
 

@@ -172,9 +172,18 @@ class Eulero(BasePuzzle):
 		lpair = [-1, -1]
 		lpair[pos] = value
 		if othercell.is_fix():
+			# We found the location of a new pair
 			lpair[1-pos] = othercell.val
-			pair = tuple(lpair)
-			self.setpair(pair, row, col)
+			self.setpair(tuple(lpair), row, col)
+		else:
+			# We fixed one value (left or right) in a previously empty cell.
+			# Exclude all values from the other cell where the corresponding pair
+			# has been found already
+			for otherval in othercell.val.copy():
+				lpair[1-pos] = otherval
+				if isinstance(self.pairs[tuple(lpair)], BaseCell):
+					log.debug('Exclude {otherval} from {othercell.name}')
+					othercell.xclude(otherval)
 		for otherval in range(1, self.n + 1):
 			lpair[1-pos] = otherval
 			pair = tuple(lpair)

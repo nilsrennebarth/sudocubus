@@ -3,8 +3,8 @@ import types
 import logging
 import re
 
-import msquare
-import cell
+from msquare import BasePuzzle, Magicsquare
+from cell import BaseCell, NCell
 from exceptions import Unsolvable
 
 log = logging.getLogger(__name__)
@@ -33,17 +33,7 @@ def euleroval(v:str):
 	return res
 
 
-class Eulerosquare(msquare.Magicsquare):
-	"""A magic square inside of an Eulero
-
-	There are only two differences to a regular magic square: An Eulerosquare
-	knows its parent, the Eulero itself, and its position inside it(left: 0 or
-	right: 1), and the setpos method is intercepted to also exclude the
-	corresponding pairs of the eulero.
-	"""
-
-
-class Eulero(types.SimpleNamespace):
+class Eulero(BasePuzzle):
 	"""
 	A general eulero puzzle is a square NxN where each cell has two positions, a
 	left and a right one.
@@ -72,8 +62,9 @@ class Eulero(types.SimpleNamespace):
 	  be reduced accordingly.
 	"""
 	def __init__(self, n: int = 5):
+		super().__init__()
 		self.n = n
-		self.square = [msquare.Magicsquare(n) for i in range(2)]
+		self.square = [Magicsquare(n) for i in range(2)]
 		self.square[0].name = 'Left'
 		self.square[0].pos = 0
 		self.square[0].parent = self
@@ -100,7 +91,7 @@ class Eulero(types.SimpleNamespace):
 		Restore puzzle to the given state
 		"""
 		squares, self.pairs = state
-		for i, s, r in enumerate(squares):
+		for i, (s, r) in enumerate(squares):
 			self.square[i].restorestate(s)
 			self.square[i].remain = r
 
@@ -108,7 +99,7 @@ class Eulero(types.SimpleNamespace):
 		"""Primary cell at a position"""
 		return self.square[0].getcell(row, col)
 
-	def findtry(self) -> cell.NCell:
+	def findtry(self) -> NCell:
 		"""
 		Find an unsolved cell with the smalles number of potential values
 		"""
@@ -139,7 +130,7 @@ class Eulero(types.SimpleNamespace):
 		"""
 		pairval = self.pairs[pair]
 		cell = self.pcell(row, col)
-		if isinstance(pairval, cell.BaseCell):
+		if isinstance(pairval, BaseCell):
 			# Pair has been found already
 			if pairval.row != row or pairval.col != col:
 				raise Unsolvable(
@@ -207,13 +198,13 @@ class Eulero(types.SimpleNamespace):
 		and return True, otherwise return False.
 		"""
 		for pair, val in self.pairs.items():
-			if isinstance(val, cell.BaseCell): continue
+			if isinstance(val, BaseCell): continue
 			if len(val) > 1: continue
 			if len(val) == 0:
 				raise Unsolvable(f'No remaining location for pair {pair}')
 			pro = False
 			cell = val.pop()  # cell is in left Magicsquare
-			log.debug(f'Pair {self.pair2str(pair)} must be at ({cell.row}, {cell.col})')
+			log.debug(f'Pair {self.pair2str(pair)} must be at ({cell.row + 1}, {cell.col + 1})')
 			if isinstance(cell.val, set):
 				pro = True
 				cell.setval(pair[0], "Left of single location pair")
@@ -274,7 +265,7 @@ class Eulero(types.SimpleNamespace):
 		print('\n'.join(lines))
 
 	def print(self):
-		quickprint()
+		self.quickprint()
 
 	@classmethod
 	def fromfile(cls, file:str):

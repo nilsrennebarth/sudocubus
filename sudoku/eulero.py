@@ -138,7 +138,7 @@ class Eulero(BasePuzzle):
 				)
 			log.warning(f'Pair {self.pair2str(pair)} has already been set')
 			return
-		log.debug(f'Pair {self.pair2str(pair)} found at ({row}, {col})')
+		log.debug(f'Pair {self.pair2str(pair)} found at ({row + 1}, {col + 1})')
 		self.pairs[pair] = self.pcell(row, col)
 		# Remove left value from cells where the right value is already set to
 		# the right value of the pair. Same for the right value

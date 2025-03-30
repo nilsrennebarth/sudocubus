@@ -140,7 +140,7 @@ class Magicsquare(BasePuzzle):
 		self.myhouse = [self.row, self.col]
 		self.myrules = [self.rule_singlecandidate, self.rule_singlepos]
 
-	def getcell(self, row: int, col: int):
+	def getcell(self, row: int, col: int) -> cell.NCell:
 		"""Cell by row and column numbers"""
 		return self.cells[self.N * row + col]
 

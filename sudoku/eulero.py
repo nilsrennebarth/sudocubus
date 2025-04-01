@@ -64,6 +64,7 @@ class Eulero(BasePuzzle):
 	def __init__(self, n: int = 5):
 		super().__init__()
 		self.n = n
+		self.digits = len(str(n))
 		self.square = [Magicsquare(n) for i in range(2)]
 		self.square[0].name = 'Left'
 		self.square[0].pos = 0
@@ -80,11 +81,23 @@ class Eulero(BasePuzzle):
 			self.rule_singlepairpos
 		]
 
+	def pairname(self, pair):
+		return chr(ord('A') - 1 + pair[0]) + '{n:>{w}}'.format(n=pair[1], w=self.digits)
+
+	def posname(self, row, col):
+		return f'({row + 1},{col + 1})'
+
+	def pairstate(self):
+		return {
+			pair: val.copy() if isinstance(val, set) else val
+			for pair, val in self.pairs.items()
+		}
+
 	def state(self):
 		"""
 		Current state of the puzzle
 		"""
-		return [(s.state(), s.remain) for s in self.square], self.pairs.copy()
+		return [(s.state(), s.remain) for s in self.square], self.pairstate()
 
 	def restorestate(self, state):
 		"""
@@ -134,11 +147,11 @@ class Eulero(BasePuzzle):
 			# Pair has been found already
 			if pairval.row != row or pairval.col != col:
 				raise Unsolvable(
-					f'Pair {self.pair2str(pair)} already at ({pairval.row}{pairval.col})'
+					f'Pair {self.pairname(pair)} already at {self.posname(pairval.row, pairval.col)})'
 				)
 			log.warning(f'Pair {self.pair2str(pair)} has already been set')
 			return
-		log.debug(f'Pair {self.pair2str(pair)} found at ({row + 1}, {col + 1})')
+		log.debug(f'Pair {self.pairname(pair)} found at {self.posname(row, col)}')
 		self.pairs[pair] = self.pcell(row, col)
 		# Remove left value from cells where the right value is already set to
 		# the right value of the pair. Same for the right value
@@ -177,28 +190,32 @@ class Eulero(BasePuzzle):
 			self.setpair(tuple(lpair), row, col)
 		else:
 			# We fixed one value (left or right) in a previously empty cell.
-			# Exclude all values from the other cell where the corresponding pair
-			# has been found already
+			# Exclude all values from the other cell position, where the
+			# corresponding pair has been found already
 			for otherval in othercell.val.copy():
 				lpair[1-pos] = otherval
 				if isinstance(self.pairs[tuple(lpair)], BaseCell):
-					log.debug('Exclude {otherval} from {othercell.name}')
+					log.debug(f'Exclude {otherval} from {othercell.name}')
 					othercell.xclude(otherval)
+
+	def cellnotval(self, square, cell, value):
+		"""
+		Remove potential pair locations when a value has been excluded from a cell
+		"""
+		pos, row, col = square.pos, cell.row, cell.col
+		cell = self.pcell(row, col)
+		lpair = [-1, -1]
+		lpair[pos] = value
 		for otherval in range(1, self.n + 1):
-			lpair[1-pos] = otherval
+			lpair[1 - pos] = otherval
 			pair = tuple(lpair)
 			locations = self.pairs[pair]
-			if not isinstance(locations, set):
-				continue
-			current = self.pcell(row, col)
-			for house in self.square[0].myhouse:
-				for c in house(current):
-					if c is not current:
-						locations.discard(c)
-						if len(locations) == 0:
-							raise Unsolvable(
-								f'No remaining location for pair {pair}'
-							)
+			if isinstance(locations, BaseCell): continue
+			if cell not in locations: continue
+			# log.debug(f'{self.pairname(pair)} not at {self.posname(row,col)}')
+			locations.remove(cell)
+			if len(locations) == 0:
+				raise Unsolvable(f'No location for {self.pairname(pair)}')
 
 	def rule_singlepairpos(self) -> bool:
 		"""
@@ -313,7 +330,8 @@ if __name__ == '__main__':
 	import sys
 
 	logging.basicConfig(
-		format='%(levelname).1s:%(message)s', level=logging.DEBUG
+		format='%(levelname).1s:%(message)s', level=logging.DEBUG,
+		stream=sys.stdout
 	)
 	puzzle = Eulero.fromfile(sys.argv[1])
 	puzzle.quickprint()

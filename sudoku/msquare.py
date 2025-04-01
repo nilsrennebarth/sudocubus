@@ -24,12 +24,14 @@ class BasePuzzle(types.SimpleNamespace):
 	"""
 	def __init__(self):
 		self.stack = []
+		self.maxlevel = 0
 
 	def backup(self):
 		"""
 		Push a backup of our current state on the stack
 		"""
 		self.stack.append((self.remain, self.state()))
+		log.debug(f'Backed up state, now at level {len(self.stack)}')
 
 	def restore(self):
 		"""
@@ -38,6 +40,7 @@ class BasePuzzle(types.SimpleNamespace):
 		remain, state = self.stack.pop()
 		self.restorestate(state)
 		self.remain = remain
+		log.debug(f'Restored state, back at level {len(self.stack)}')
 
 	def apply_rules(self) -> bool:
 		for rule in self.myrules:
@@ -47,6 +50,8 @@ class BasePuzzle(types.SimpleNamespace):
 
 	def solve_r(self):
 		level = len(self.stack)
+		if level > self.maxlevel:
+			self.maxlevel = level
 		try:
 			while self.apply_rules() and self.remain > 0:
 				pass
@@ -69,7 +74,9 @@ class BasePuzzle(types.SimpleNamespace):
 			except Unsolvable as e:
 				log.debug(f'[{level}] {cand} leads to {e}')
 			self.restore()
-		raise Unsolvable(f'Tried all candidates for {cell.name}')
+		if level > 0:
+			log.debug(f'[{level}] No solution found')
+		return False
 
 	def solve(self):
 		if self.solve_r():
@@ -176,6 +183,17 @@ class Magicsquare(BasePuzzle):
 		if cellgotval is not None:
 			cellgotval(self, cell, val)
 
+	def cellnotval(self, cell, val):
+		"""
+		A value has been excluded from a cell
+
+		Will be called when a previously possible value has now been excluded
+		from a cell. We just propagate this upstream.
+		"""
+		cellnotval = getattr(getattr(self, 'parent', None), 'cellnotval', None)
+		if cellnotval is not None:
+			cellnotval(self, cell, val)
+
 	def setgivens(self, *args):
 		"""
 		Set multiple givens
@@ -234,7 +252,6 @@ class Magicsquare(BasePuzzle):
 		"""
 		for cell in self.cells:
 			if cell.is_fix() or len(cell.val) > 1: continue
-			log.debug('Found single candidate')
 			cell.setval(cell.getany(), 'single-candidate')
 			return True
 		return False
@@ -291,7 +308,6 @@ class Magicsquare(BasePuzzle):
 		"""
 		Try singleposition rule for all numbers
 		"""
-		log.debug(f'Try singlepos rule')
 		for x in range(1, self.N + 1):
 			if self.try_singlepos_x(x):
 				return True

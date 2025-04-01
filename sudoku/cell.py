@@ -79,8 +79,12 @@ class NCell(BaseCell):
 			raise Unsolvable(f'{self.name} already set to {self._val}')
 		if num not in self._val:
 			raise Unsolvable(f'{self.name} value {num} not available')
+		if hasattr(self.parent, 'cellnotval'):
+			# Exlude all other currently existing values
+			for v in self._val - {num}:
+				self.parent.cellnotval(self, v)
 		self._val = num
-		if hasattr(self.parent,'cellgotval'):
+		if hasattr(self.parent, 'cellgotval'):
 			self.parent.cellgotval(self, num)
 
 	def xclude(self, num: int):
@@ -94,12 +98,19 @@ class NCell(BaseCell):
 
 		Removing the last candidate from a cell raises an Unsolvable
 		exception.
+
+		When the value was indeed included before, propagate this
+		to the parent puzzle by calling its cellnotvalue method.
 		"""
 		if isinstance(self._val, int):
+			return
+		if num not in self._val:
 			return
 		self._val.discard(num)
 		if len(self._val) == 0:
 			raise Unsolvable(f'No candidate for {self.name}')
+		if hasattr(self.parent, 'cellnotval'):
+			self.parent.cellnotval(self, num)
 
 	def is_fix(self):
 		return isinstance(self._val, int)
